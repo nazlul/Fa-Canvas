@@ -28,8 +28,8 @@ const DEFAULT_COLORS = [
 ];
 
 export function HomeTab() {
-  const [selectedColor, setSelectedColor] = useState("#000000");
-  const [customColor, setCustomColor] = useState("#000000");
+  const [selectedColor, setSelectedColor] = useState("#FFFFFF");
+  const [customColor, setCustomColor] = useState("#FFFFFF");
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -43,9 +43,8 @@ export function HomeTab() {
   const { data: balance } = useBalance({ address });
   const { writeContract, isPending } = useWriteContract();
 
-  // Mock data - in real app this would come from API
+  // Load existing pixels from API
   useEffect(() => {
-    // Load existing pixels from API
     const loadPixels = async () => {
       try {
         const response = await fetch('/api/canvas');
@@ -156,9 +155,26 @@ export function HomeTab() {
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(prev => Math.max(0.1, Math.min(10, prev * delta)));
-  }, []);
+    
+    // Get mouse position relative to canvas
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Calculate zoom factor
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(20, zoom * zoomFactor));
+    
+    // Calculate new offset to zoom towards mouse position
+    const zoomRatio = newZoom / zoom;
+    const newOffsetX = mouseX - (mouseX - offset.x) * zoomRatio;
+    const newOffsetY = mouseY - (mouseY - offset.y) * zoomRatio;
+    
+    setZoom(newZoom);
+    setOffset({ x: newOffsetX, y: newOffsetY });
+  }, [zoom, offset]);
 
   const handlePurchasePixels = async () => {
     if (!address) {
@@ -206,23 +222,16 @@ export function HomeTab() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header Info */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg mb-4 shadow-sm">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-bold">CastCanvas</h2>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {remainingPixels} pixels remaining today
-          </div>
-        </div>
-        <div className="flex gap-2 text-xs text-gray-500 dark:text-gray-400">
-          <span>Canvas: {CANVAS_SIZE}x{CANVAS_SIZE}</span>
-          <span>Zoom: {Math.round(zoom * 100)}%</span>
-          <span>Position: ({Math.round(offset.x)}, {Math.round(offset.y)})</span>
+      {/* Minimal Header */}
+      <div className="bg-black text-white p-2 rounded-lg mb-2 shadow-sm">
+        <div className="flex justify-between items-center text-sm">
+          <span className="font-bold">CastCanvas</span>
+          <span>{remainingPixels} pixels left</span>
         </div>
       </div>
 
-      {/* Canvas Container */}
-      <div className="canvas-container flex-1">
+      {/* Main Canvas Container - Takes most of the space */}
+      <div className="flex-1 relative bg-black rounded-lg overflow-hidden border border-gray-700">
         <div
           ref={canvasRef}
           className="w-full h-full relative cursor-crosshair"
@@ -234,13 +243,18 @@ export function HomeTab() {
           onWheel={handleWheel}
           style={{ cursor: isDragging ? 'grabbing' : 'crosshair' }}
         >
-          {/* Canvas Grid */}
+          {/* Canvas Grid - Black background with white grids */}
           <div
-            className="canvas-grid"
+            className="absolute"
             style={{
               width: CANVAS_SIZE * zoom,
               height: CANVAS_SIZE * zoom,
               transform: `translate(${offset.x}px, ${offset.y}px)`,
+              backgroundColor: '#000000',
+              backgroundImage: `
+                linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+              `,
               backgroundSize: `${zoom}px ${zoom}px`
             }}
           >
@@ -255,7 +269,7 @@ export function HomeTab() {
                   width: zoom,
                   height: zoom,
                   backgroundColor: pixel.color,
-                  border: zoom > 2 ? '1px solid rgba(0,0,0,0.1)' : 'none'
+                  border: zoom > 2 ? '1px solid rgba(255,255,255,0.2)' : 'none'
                 }}
                 title={`${pixel.color} at (${pixel.x}, ${pixel.y})`}
               />
@@ -263,38 +277,43 @@ export function HomeTab() {
           </div>
         </div>
 
-        {/* Zoom Controls */}
-        <div className="zoom-controls">
+        {/* Zoom Controls - Floating on top */}
+        <div className="absolute top-4 right-4 flex flex-col gap-2">
           <button
-            onClick={() => setZoom(prev => Math.min(10, prev * 1.2))}
-            className="zoom-button"
+            onClick={() => setZoom(prev => Math.min(20, prev * 1.2))}
+            className="zoom-button bg-gray-800 text-white hover:bg-gray-700"
           >
             +
           </button>
           <button
             onClick={() => setZoom(prev => Math.max(0.1, prev / 1.2))}
-            className="zoom-button"
+            className="zoom-button bg-gray-800 text-white hover:bg-gray-700"
           >
             -
           </button>
           <button
             onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}
-            className="zoom-button"
+            className="zoom-button bg-gray-800 text-white hover:bg-gray-700"
             title="Reset View"
           >
             ⌂
           </button>
         </div>
+
+        {/* Zoom Level Indicator */}
+        <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+          {Math.round(zoom * 100)}%
+        </div>
       </div>
 
-      {/* Color Palette and Controls */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg mt-4 shadow-sm">
-        <div className="color-palette mb-4">
+      {/* Color Palette and Controls - Compact at bottom */}
+      <div className="bg-black text-white p-3 rounded-lg mt-2 shadow-sm">
+        <div className="color-palette mb-3">
           {DEFAULT_COLORS.map((color) => (
             <button
               key={color}
               onClick={() => setSelectedColor(color)}
-              className={`color-swatch ${selectedColor === color ? 'selected' : 'border-gray-300'}`}
+              className={`color-swatch ${selectedColor === color ? 'selected' : 'border-gray-600'}`}
               style={{ backgroundColor: color }}
               title={color}
             />
@@ -307,23 +326,23 @@ export function HomeTab() {
                 setCustomColor(e.target.value);
                 setSelectedColor(e.target.value);
               }}
-              className="color-swatch border-gray-300 cursor-pointer"
+              className="color-swatch border-gray-600 cursor-pointer"
             />
-            <span className="text-xs text-gray-600 dark:text-gray-400">Custom</span>
+            <span className="text-xs text-gray-400">Custom</span>
           </div>
         </div>
 
         {/* Purchase Section */}
         <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="text-xs text-gray-400">
             Selected: <span className="font-mono" style={{ color: selectedColor }}>{selectedColor}</span>
           </div>
           <button
             onClick={handlePurchasePixels}
             disabled={isLoading || isPending}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition-colors"
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded text-xs font-medium transition-colors"
           >
-            {isLoading || isPending ? "Processing..." : `Buy ${PIXELS_PER_PURCHASE} Pixels ($${PRICE_PER_PURCHASE * 1000} ETH)`}
+            {isLoading || isPending ? "Processing..." : `Buy ${PIXELS_PER_PURCHASE} Pixels`}
           </button>
         </div>
       </div>

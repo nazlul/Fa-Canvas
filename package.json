@@ -19,15 +19,18 @@
     "lint": "next lint",
     "deploy:vercel": "node --loader ts-node/esm scripts/deploy.ts",
     "deploy:raw": "vercel --prod",
-    "cleanup": "node scripts/cleanup.js"
+    "cleanup": "node scripts/cleanup.js",
+    "push": "node scripts/auto-push.js",
+    "watch": "node scripts/watch-and-push.js"
   },
   "dependencies": {
     "@farcaster/auth-client": ">=0.3.0 <1.0.0",
+    "@farcaster/mini-app-solana": ">=0.0.17 <1.0.0",
     "@farcaster/miniapp-node": ">=0.1.5 <1.0.0",
     "@farcaster/miniapp-sdk": ">=0.1.6 <1.0.0",
     "@farcaster/miniapp-wagmi-connector": "^1.0.0",
-    "@farcaster/mini-app-solana": ">=0.0.17 <1.0.0",
     "@farcaster/quick-auth": ">=0.0.7 <1.0.0",
+    "@neynar/nodejs-sdk": "^2.19.0",
     "@neynar/react": "^1.2.5",
     "@radix-ui/react-label": "^2.1.1",
     "@solana/wallet-adapter-react": "^0.15.38",
@@ -41,13 +44,12 @@
     "next": "^15",
     "react": "^19",
     "react-dom": "^19",
+    "siwe": "^3.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "viem": "^2.23.6",
     "wagmi": "^2.14.12",
-    "zod": "^3.24.2",
-    "siwe": "^3.0.0",
-    "@neynar/nodejs-sdk": "^2.19.0"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/inquirer": "^9.0.8",
@@ -55,6 +57,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vercel/sdk": "^1.9.0",
+    "chokidar": "^4.0.3",
     "crypto": "^1.0.1",
     "eslint": "^8",
     "eslint-config-next": "15.0.3",
