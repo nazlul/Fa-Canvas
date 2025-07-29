@@ -45,6 +45,7 @@ export default function App(
 
   return (
     <div
+      className="h-screen flex flex-col"
       style={{
         paddingTop: context?.client.safeAreaInsets?.top ?? 0,
         paddingBottom: context?.client.safeAreaInsets?.bottom ?? 0,
@@ -54,9 +55,7 @@ export default function App(
     >
       <Header neynarUser={neynarUser} />
 
-      <div className="container py-2 pb-20">
-        <h1 className="text-2xl font-bold text-center mb-4">{title}</h1>
-
+      <div className="flex-1">
         {currentTab === Tab.Home && <HomeTab />}
       </div>
     </div>

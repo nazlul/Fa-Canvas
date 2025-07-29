@@ -40,6 +40,7 @@ export function HomeTab() {
   const [remainingPixels, setRemainingPixels] = useState(DAILY_PIXEL_LIMIT);
   const [isLoading, setIsLoading] = useState(false);
   const [purchaseError, setPurchaseError] = useState("");
+  const [showColorPalette, setShowColorPalette] = useState(false);
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const { address } = useAccount();
@@ -227,20 +228,34 @@ export function HomeTab() {
   }, [isPending, error, address]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="bg-black text-white p-2 rounded-lg mb-2 shadow-sm">
-        <div className="flex justify-between items-center text-sm">
-          <span className="font-bold">CastCanvas</span>
-          <span>{remainingPixels} pixels left</span>
+    <div className="h-full flex flex-col">
+      <div className="flex justify-between items-center p-2 bg-black text-white">
+        <div className="flex items-center gap-4">
+          <span className="font-bold text-lg">CastCanvas</span>
+          <span className="text-sm">{remainingPixels} pixels left</span>
+          {chainId !== REQUIRED_CHAIN_ID && (
+            <span className="text-xs text-yellow-400">⚠️ Switch to Base</span>
+          )}
         </div>
-        {chainId !== REQUIRED_CHAIN_ID && (
-          <div className="text-xs text-yellow-400 mt-1">
-            ⚠️ Switch to Base network to purchase pixels
-          </div>
-        )}
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowColorPalette(!showColorPalette)}
+            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm"
+          >
+            🎨 Colors
+          </button>
+          <button
+            onClick={handlePurchasePixels}
+            disabled={isLoading || isPending || chainId !== REQUIRED_CHAIN_ID}
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded text-sm font-medium"
+          >
+            {isLoading || isPending ? "Processing..." : `Buy ${PIXELS_PER_PURCHASE} Pixels`}
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 relative bg-black rounded-lg overflow-hidden border border-gray-700">
+      <div className="flex-1 relative bg-black overflow-hidden">
         <div
           ref={canvasRef}
           className="w-full h-full relative cursor-crosshair"
@@ -287,71 +302,71 @@ export function HomeTab() {
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           <button
             onClick={() => setZoom(prev => Math.min(20, prev * 1.2))}
-            className="zoom-button bg-gray-800 text-white hover:bg-gray-700"
+            className="w-10 h-10 bg-gray-800 text-white rounded-lg shadow-lg flex items-center justify-center text-lg font-bold hover:bg-gray-700"
           >
             +
           </button>
           <button
             onClick={() => setZoom(prev => Math.max(0.1, prev / 1.2))}
-            className="zoom-button bg-gray-800 text-white hover:bg-gray-700"
+            className="w-10 h-10 bg-gray-800 text-white rounded-lg shadow-lg flex items-center justify-center text-lg font-bold hover:bg-gray-700"
           >
             -
           </button>
           <button
             onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}
-            className="zoom-button bg-gray-800 text-white hover:bg-gray-700"
+            className="w-10 h-10 bg-gray-800 text-white rounded-lg shadow-lg flex items-center justify-center text-sm"
             title="Reset View"
           >
             ⌂
           </button>
         </div>
 
-        <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-          {Math.round(zoom * 100)}%
-        </div>
-      </div>
-
-      <div className="bg-black text-white p-3 rounded-lg mt-2 shadow-sm">
-        <div className="color-palette mb-3">
-          {DEFAULT_COLORS.map((color) => (
-            <button
-              key={color}
-              onClick={() => setSelectedColor(color)}
-              className={`color-swatch ${selectedColor === color ? 'selected' : 'border-gray-600'}`}
-              style={{ backgroundColor: color }}
-              title={color}
-            />
-          ))}
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={customColor}
-              onChange={(e) => {
-                setCustomColor(e.target.value);
-                setSelectedColor(e.target.value);
-              }}
-              className="color-swatch border-gray-600 cursor-pointer"
-            />
-            <span className="text-xs text-gray-400">Custom</span>
-          </div>
+        <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-3 py-2 rounded text-sm">
+          {Math.round(zoom * 100)}% | ({Math.round(offset.x)}, {Math.round(offset.y)})
         </div>
 
-        <div className="flex justify-between items-center">
-          <div className="text-xs text-gray-400">
-            Selected: <span className="font-mono" style={{ color: selectedColor }}>{selectedColor}</span>
+        {showColorPalette && (
+          <div className="absolute top-16 right-4 bg-gray-800 p-4 rounded-lg shadow-xl z-10">
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {DEFAULT_COLORS.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => {
+                    setSelectedColor(color);
+                    setShowColorPalette(false);
+                  }}
+                  className={`w-8 h-8 rounded border-2 transition-all ${
+                    selectedColor === color ? 'border-white scale-110' : 'border-gray-600'
+                  }`}
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={customColor}
+                onChange={(e) => {
+                  setCustomColor(e.target.value);
+                  setSelectedColor(e.target.value);
+                }}
+                className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer"
+              />
+              <span className="text-xs text-gray-300">Custom</span>
+            </div>
+            <div className="mt-2 text-xs text-gray-300">
+              Selected: <span className="font-mono" style={{ color: selectedColor }}>{selectedColor}</span>
+            </div>
           </div>
-          <button
-            onClick={handlePurchasePixels}
-            disabled={isLoading || isPending || chainId !== REQUIRED_CHAIN_ID}
-            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded text-xs font-medium transition-colors"
-          >
-            {isLoading || isPending ? "Processing..." : `Buy ${PIXELS_PER_PURCHASE} Pixels (${PRICE_PER_PURCHASE} ETH)`}
-          </button>
-        </div>
-        {purchaseError && (
-          <div className="text-xs text-red-400 mt-1">{purchaseError}</div>
         )}
       </div>
+
+      {purchaseError && (
+        <div className="absolute bottom-4 right-4 bg-red-600 text-white px-3 py-2 rounded text-sm">
+          {purchaseError}
+        </div>
+      )}
     </div>
   );
 } 
