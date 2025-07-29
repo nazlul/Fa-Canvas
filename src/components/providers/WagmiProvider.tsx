@@ -75,7 +75,7 @@ function CoinbaseWalletAutoConnect({ children }: { children: React.ReactNode }) 
   return <>{children}</>;
 }
 
-export default function Provider({ children }: { children: React.ReactNode }) {
+export function WagmiProviderWrapper({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>

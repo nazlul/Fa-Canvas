@@ -1,14 +1,14 @@
 'use client';
 
-import { WagmiProvider } from "~/components/providers/WagmiProvider";
+import { WagmiProviderWrapper } from "~/components/providers/WagmiProvider";
 import { NeynarProvider } from "~/components/providers/NeynarProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider>
+    <WagmiProviderWrapper>
       <NeynarProvider>
         {children}
       </NeynarProvider>
-    </WagmiProvider>
+    </WagmiProviderWrapper>
   );
 }
