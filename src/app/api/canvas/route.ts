@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CANVAS_SIZE, DAILY_PIXEL_LIMIT } from '~/lib/constants';
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+
+// Viem client for Base network
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http(),
+});
+
+// Contract ABI for pixel tracking
+const CONTRACT_ABI = [
+  "function getAvailablePixels(address user) external view returns (uint256)",
+  "function getDailyPixels(address user) external view returns (uint256)",
+  "function userPurchasedPixels(address user) external view returns (uint256)",
+  "function usePixel(address user) external returns (bool)"
+];
+
+// Contract address (will be updated after deployment)
+const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; // TODO: Update with deployed address
 
 interface Pixel {
   x: number;
@@ -59,14 +78,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check daily limit
+    // Check if user has available pixels (daily + purchased)
     const today = new Date().toDateString();
     const userKey = `${user}-${today}`;
     const userPixelsToday = userDailyPixels[userKey] || 0;
+    
+    // In a real implementation, you would call the smart contract here
+    // For now, we'll use the local tracking
+    const availablePixels = DAILY_PIXEL_LIMIT - userPixelsToday;
 
-    if (userPixelsToday >= DAILY_PIXEL_LIMIT) {
+    if (availablePixels <= 0) {
       return NextResponse.json(
-        { success: false, error: 'Daily pixel limit reached' },
+        { success: false, error: 'No pixels available. Purchase more or wait for daily reset.' },
         { status: 429 }
       );
     }
@@ -92,7 +115,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       pixel: newPixel,
-      remainingPixels: DAILY_PIXEL_LIMIT - (userPixelsToday + 1)
+      remainingPixels: availablePixels - 1
     });
   } catch (error) {
     return NextResponse.json(

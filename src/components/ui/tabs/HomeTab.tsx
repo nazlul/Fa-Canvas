@@ -1,9 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useAccount, useBalance, useWriteContract } from "wagmi";
+import { useAccount, useBalance, useWriteContract, useChainId, useSwitchChain } from "wagmi";
 import { parseEther } from "viem";
-import { CANVAS_SIZE, DAILY_PIXEL_LIMIT, PIXELS_PER_PURCHASE, PRICE_PER_PURCHASE, PAYMENT_WALLET } from "~/lib/constants";
+import { base } from "wagmi/chains";
+import { CANVAS_SIZE, DAILY_PIXEL_LIMIT, PIXELS_PER_PURCHASE, PRICE_PER_PURCHASE, PAYMENT_WALLET, REQUIRED_CHAIN_ID } from "~/lib/constants";
+
+// Contract ABI for CastCanvas
+const CONTRACT_ABI = [
+  "function purchasePixels() external payable",
+  "function getAvailablePixels(address user) external view returns (uint256)",
+  "function getDailyPixels(address user) external view returns (uint256)",
+  "function userPurchasedPixels(address user) external view returns (uint256)",
+  "event PixelPurchased(address indexed user, uint256 amount, uint256 pixels)"
+];
+
+// Contract address (will be updated after deployment)
+const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; // TODO: Update with deployed address
 
 interface Pixel {
   x: number;
@@ -37,11 +50,14 @@ export function HomeTab() {
   const [pixels, setPixels] = useState<Pixel[]>([]);
   const [remainingPixels, setRemainingPixels] = useState(DAILY_PIXEL_LIMIT);
   const [isLoading, setIsLoading] = useState(false);
+  const [purchaseError, setPurchaseError] = useState("");
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const { address } = useAccount();
   const { data: balance } = useBalance({ address });
-  const { writeContract, isPending } = useWriteContract();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+  const { writeContract, isPending, error } = useWriteContract();
 
   // Load existing pixels from API
   useEffect(() => {
@@ -182,39 +198,54 @@ export function HomeTab() {
       return;
     }
 
-    try {
-      setIsLoading(true);
-      
-      // In a real app, you'd send a transaction to the blockchain here
-      // For demo purposes, we'll simulate the transaction
-      const mockTransactionHash = `0x${Math.random().toString(16).substring(2)}`;
-      
-      const response = await fetch('/api/canvas/purchase', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user: address,
-          transactionHash: mockTransactionHash
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setRemainingPixels(prev => prev + PIXELS_PER_PURCHASE);
-        alert(`Successfully purchased ${PIXELS_PER_PURCHASE} pixels!`);
-      } else {
-        alert(data.error || 'Failed to purchase pixels');
+    // Check if we're on the correct network (Base)
+    if (chainId !== REQUIRED_CHAIN_ID) {
+      try {
+        await switchChain({ chainId: REQUIRED_CHAIN_ID });
+      } catch (error) {
+        alert("Please switch to Base network to purchase pixels!");
+        return;
       }
+    }
+
+    setPurchaseError("");
+    setIsLoading(true);
+
+    try {
+      // Call the smart contract to purchase pixels
+      writeContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI,
+        functionName: 'purchasePixels',
+        value: parseEther(PRICE_PER_PURCHASE.toString()),
+      });
     } catch (error) {
       console.error('Failed to purchase pixels:', error);
-      alert('Failed to purchase pixels. Please try again.');
+      setPurchaseError("Failed to purchase pixels. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Handle successful purchase
+  useEffect(() => {
+    if (!isPending && !error && address) {
+      // Refresh user's pixel count
+      const refreshPixels = async () => {
+        try {
+          const response = await fetch(`/api/canvas/user?address=${address}`);
+          const data = await response.json();
+          if (data.success) {
+            setRemainingPixels(data.remainingPixels);
+          }
+        } catch (error) {
+          console.error('Failed to refresh pixels:', error);
+        }
+      };
+
+      refreshPixels();
+    }
+  }, [isPending, error, address]);
 
   const getPixelAt = (x: number, y: number) => {
     return pixels.find(pixel => pixel.x === Math.floor(x) && pixel.y === Math.floor(y));
@@ -228,6 +259,11 @@ export function HomeTab() {
           <span className="font-bold">CastCanvas</span>
           <span>{remainingPixels} pixels left</span>
         </div>
+        {chainId !== REQUIRED_CHAIN_ID && (
+          <div className="text-xs text-yellow-400 mt-1">
+            ⚠️ Switch to Base network to purchase pixels
+          </div>
+        )}
       </div>
 
       {/* Main Canvas Container - Takes most of the space */}
@@ -339,12 +375,15 @@ export function HomeTab() {
           </div>
           <button
             onClick={handlePurchasePixels}
-            disabled={isLoading || isPending}
+            disabled={isLoading || isPending || chainId !== REQUIRED_CHAIN_ID}
             className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded text-xs font-medium transition-colors"
           >
-            {isLoading || isPending ? "Processing..." : `Buy ${PIXELS_PER_PURCHASE} Pixels`}
+            {isLoading || isPending ? "Processing..." : `Buy ${PIXELS_PER_PURCHASE} Pixels (${PRICE_PER_PURCHASE} ETH)`}
           </button>
         </div>
+        {purchaseError && (
+          <div className="text-xs text-red-400 mt-1">{purchaseError}</div>
+        )}
       </div>
     </div>
   );

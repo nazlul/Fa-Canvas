@@ -1,5 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PIXELS_PER_PURCHASE, PRICE_PER_PURCHASE, PAYMENT_WALLET } from '~/lib/constants';
+import { createPublicClient, http, parseEther } from 'viem';
+import { base } from 'viem/chains';
+
+// Viem client for Base network
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http(),
+});
+
+// Contract ABI for verification
+const CONTRACT_ABI = [
+  "function purchasePixels() external payable",
+  "function getAvailablePixels(address user) external view returns (uint256)",
+  "function getDailyPixels(address user) external view returns (uint256)",
+  "function userPurchasedPixels(address user) external view returns (uint256)",
+  "event PixelPurchased(address indexed user, uint256 amount, uint256 pixels)"
+];
 
 // In-memory storage for demo purposes
 // In production, this would be a database
@@ -17,19 +34,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // In a real app, you would verify the transaction here
-    // For demo purposes, we'll just simulate the purchase
-    const userKey = `${user}-purchased`;
-    const currentPurchased = userPurchasedPixels[userKey] || 0;
-    userPurchasedPixels[userKey] = currentPurchased + PIXELS_PER_PURCHASE;
+    // Verify the transaction on Base network
+    try {
+      const transaction = await publicClient.getTransaction({
+        hash: transactionHash as `0x${string}`,
+      });
 
-    return NextResponse.json({
-      success: true,
-      purchasedPixels: PIXELS_PER_PURCHASE,
-      totalPurchased: userPurchasedPixels[userKey],
-      price: PRICE_PER_PURCHASE,
-      paymentWallet: PAYMENT_WALLET
-    });
+      // Verify transaction details
+      if (transaction.to?.toLowerCase() !== PAYMENT_WALLET.toLowerCase()) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid recipient address' },
+          { status: 400 }
+        );
+      }
+
+      if (transaction.value !== parseEther(PRICE_PER_PURCHASE.toString())) {
+        return NextResponse.json(
+          { success: false, error: 'Incorrect payment amount' },
+          { status: 400 }
+        );
+      }
+
+      // Verify transaction is confirmed
+      const receipt = await publicClient.getTransactionReceipt({
+        hash: transactionHash as `0x${string}`,
+      });
+
+      if (receipt.status !== 'success') {
+        return NextResponse.json(
+          { success: false, error: 'Transaction failed' },
+          { status: 400 }
+        );
+      }
+
+      // Add pixels to user's account
+      const userKey = `${user}-purchased`;
+      const currentPurchased = userPurchasedPixels[userKey] || 0;
+      userPurchasedPixels[userKey] = currentPurchased + PIXELS_PER_PURCHASE;
+
+      return NextResponse.json({
+        success: true,
+        purchasedPixels: PIXELS_PER_PURCHASE,
+        totalPurchased: userPurchasedPixels[userKey],
+        price: PRICE_PER_PURCHASE,
+        paymentWallet: PAYMENT_WALLET,
+        transactionHash: transactionHash
+      });
+
+    } catch (error) {
+      console.error('Transaction verification failed:', error);
+      return NextResponse.json(
+        { success: false, error: 'Failed to verify transaction' },
+        { status: 500 }
+      );
+    }
+
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to process purchase' },
