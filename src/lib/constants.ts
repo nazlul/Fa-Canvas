@@ -142,7 +142,7 @@ export const SIGNED_KEY_REQUEST_TYPE = [
 ];
 
 // CastCanvas specific constants
-export const CANVAS_SIZE = 1000;
+export const CANVAS_SIZE = 200;
 export const DAILY_PIXEL_LIMIT = 5;
 export const PIXELS_PER_PURCHASE = 10;
 export const PRICE_PER_PURCHASE = 0.001; // 0.001 ETH on Base
