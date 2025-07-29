@@ -115,4 +115,48 @@ body {
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
   }
+
+  /* CastCanvas specific styles */
+  .canvas-container {
+    @apply relative bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden;
+    touch-action: none; /* Prevent default touch behaviors */
+  }
+
+  .canvas-grid {
+    @apply absolute bg-white dark:bg-gray-800;
+    background-image: 
+      linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px);
+  }
+
+  .pixel {
+    @apply absolute;
+    transition: all 0.1s ease-in-out;
+  }
+
+  .pixel:hover {
+    @apply z-10;
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+  }
+
+  .color-palette {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .color-swatch {
+    @apply w-8 h-8 rounded-lg border-2 transition-all cursor-pointer;
+  }
+
+  .color-swatch.selected {
+    @apply border-blue-500 scale-110;
+  }
+
+  .zoom-controls {
+    @apply absolute top-4 right-4 flex flex-col gap-2;
+  }
+
+  .zoom-button {
+    @apply w-8 h-8 bg-white dark:bg-gray-800 rounded-lg shadow-md flex items-center justify-center text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors;
+  }
 }

@@ -22,13 +22,13 @@ export const APP_URL: string = process.env.NEXT_PUBLIC_URL!;
  * The name of the mini app as displayed to users.
  * Used in titles, headers, and app store listings.
  */
-export const APP_NAME = 'minigame';
+export const APP_NAME = 'CastCanvas';
 
 /**
  * A brief description of the mini app's functionality.
  * Used in app store listings and metadata.
  */
-export const APP_DESCRIPTION = 'A Farcaster mini app created with Neynar';
+export const APP_DESCRIPTION = 'Collaborative pixel art canvas for Farcaster';
 
 /**
  * The primary category for the mini app.
@@ -40,7 +40,7 @@ export const APP_PRIMARY_CATEGORY = 'games';
  * Tags associated with the mini app.
  * Used for search and discovery in app stores.
  */
-export const APP_TAGS = ['neynar', 'starter-kit', 'demo'];
+export const APP_TAGS = ['neynar', 'art', 'collaborative', 'pixel-art'];
 
 // --- Asset URLs ---
 /**
@@ -102,7 +102,7 @@ export const APP_WEBHOOK_URL: string =
  * When false, wallet functionality is completely hidden from the UI.
  * Useful for mini apps that don't require wallet integration.
  */
-export const USE_WALLET = false;
+export const USE_WALLET = true;
 
 /**
  * Flag to enable/disable analytics tracking.
@@ -140,3 +140,10 @@ export const SIGNED_KEY_REQUEST_TYPE = [
   { name: 'key', type: 'bytes' },
   { name: 'deadline', type: 'uint256' },
 ];
+
+// CastCanvas specific constants
+export const CANVAS_SIZE = 1000;
+export const DAILY_PIXEL_LIMIT = 5;
+export const PIXELS_PER_PURCHASE = 10;
+export const PRICE_PER_PURCHASE = 0.001; // $1 worth of ETH (approximate)
+export const PAYMENT_WALLET = "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"; // Replace with actual wallet
