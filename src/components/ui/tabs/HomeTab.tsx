@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useAccount, useWriteContract, useChainId, useSwitchChain } from "wagmi";
 import { parseEther } from "viem";
 import { CANVAS_SIZE, DAILY_PIXEL_LIMIT, PIXELS_PER_PURCHASE, PRICE_PER_PURCHASE, REQUIRED_CHAIN_ID } from "~/lib/constants";
+import { useQuickAuth } from "~/hooks/useQuickAuth";
 
 const CONTRACT_ABI = [
   "function purchasePixels() external payable",
@@ -32,7 +33,7 @@ const DEFAULT_COLORS = [
 export function HomeTab() {
   const [selectedColor, setSelectedColor] = useState("#FFFFFF");
   const [customColor, setCustomColor] = useState("#FFFFFF");
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(4); // Start zoomed in
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [lastDragPos, setLastDragPos] = useState({ x: 0, y: 0 });
@@ -41,12 +42,15 @@ export function HomeTab() {
   const [isLoading, setIsLoading] = useState(false);
   const [purchaseError, setPurchaseError] = useState("");
   const [showColorPalette, setShowColorPalette] = useState(false);
-  
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
   const canvasRef = useRef<HTMLDivElement>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
   const { address } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const { writeContract, isPending, error } = useWriteContract();
+  const { authenticatedUser, status, signIn } = useQuickAuth();
 
   useEffect(() => {
     const loadPixels = async () => {
@@ -60,7 +64,6 @@ export function HomeTab() {
         console.error('Failed to load pixels:', _error);
       }
     };
-
     loadPixels();
   }, []);
 
@@ -77,7 +80,6 @@ export function HomeTab() {
           console.error('Failed to load user pixels:', _error);
         }
       };
-
       loadUserPixels();
     }
   }, [address]);
@@ -87,12 +89,10 @@ export function HomeTab() {
       alert("You've used all your daily pixels! Purchase more to continue.");
       return;
     }
-
-    if (!address) {
-      alert("Please connect your wallet first!");
+    if (!authenticatedUser) {
+      await signIn();
       return;
     }
-
     try {
       const response = await fetch('/api/canvas', {
         method: 'POST',
@@ -103,12 +103,10 @@ export function HomeTab() {
           x: Math.floor(x),
           y: Math.floor(y),
           color: selectedColor,
-          user: address
+          user: authenticatedUser.fid
         }),
       });
-
       const data = await response.json();
-      
       if (data.success) {
         setPixels(prev => [...prev.filter(p => !(p.x === x && p.y === y)), data.pixel]);
         setRemainingPixels(data.remainingPixels);
@@ -119,15 +117,13 @@ export function HomeTab() {
       console.error('Failed to place pixel:', _error);
       alert('Failed to place pixel. Please try again.');
     }
-  }, [selectedColor, remainingPixels, address]);
+  }, [selectedColor, remainingPixels, authenticatedUser, signIn]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (!canvasRef.current) return;
-    
     const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left - offset.x) / zoom;
     const y = (e.clientY - rect.top - offset.y) / zoom;
-    
     if (x >= 0 && x < CANVAS_SIZE && y >= 0 && y < CANVAS_SIZE) {
       handlePixelPlace(x, y);
     }
@@ -140,15 +136,9 @@ export function HomeTab() {
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging) return;
-    
     const deltaX = e.clientX - lastDragPos.x;
     const deltaY = e.clientY - lastDragPos.y;
-    
-    setOffset(prev => ({
-      x: prev.x + deltaX,
-      y: prev.y + deltaY
-    }));
-    
+    setOffset(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
     setLastDragPos({ x: e.clientX, y: e.clientY });
   }, [isDragging, lastDragPos]);
 
@@ -157,21 +147,17 @@ export function HomeTab() {
   }, []);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!canvasRef.current) return;
     e.preventDefault();
-    
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    
+    const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(20, zoom * zoomFactor));
-    
+    const newZoom = Math.max(1, Math.min(20, zoom * zoomFactor));
+    // Focus zoom on mouse pointer
     const zoomRatio = newZoom / zoom;
     const newOffsetX = mouseX - (mouseX - offset.x) * zoomRatio;
     const newOffsetY = mouseY - (mouseY - offset.y) * zoomRatio;
-    
     setZoom(newZoom);
     setOffset({ x: newOffsetX, y: newOffsetY });
   }, [zoom, offset]);
@@ -181,7 +167,6 @@ export function HomeTab() {
       alert("Please connect your wallet first!");
       return;
     }
-
     if (chainId !== REQUIRED_CHAIN_ID) {
       try {
         await switchChain({ chainId: REQUIRED_CHAIN_ID });
@@ -190,10 +175,8 @@ export function HomeTab() {
         return;
       }
     }
-
     setPurchaseError("");
     setIsLoading(true);
-
     try {
       writeContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
@@ -222,10 +205,26 @@ export function HomeTab() {
           console.error('Failed to refresh pixels:', _error);
         }
       };
-
       refreshPixels();
     }
   }, [isPending, error, address]);
+
+  // Center and fit canvas
+  const canvasContainerStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    width: '100%',
+    overflow: 'hidden',
+    background: 'black',
+  };
+
+  // Canvas size logic: fit within 90vw/90vh, but not larger than CANVAS_SIZE*zoom
+  const maxCanvasPx = CANVAS_SIZE * zoom;
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 800;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 600;
+  const canvasDisplayPx = Math.min(maxCanvasPx, Math.floor(Math.min(vw, vh) * 0.9));
 
   return (
     <div className="h-full flex flex-col">
@@ -237,7 +236,6 @@ export function HomeTab() {
             <span className="text-xs text-yellow-400">⚠️ Switch to Base</span>
           )}
         </div>
-        
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowColorPalette(!showColorPalette)}
@@ -254,18 +252,29 @@ export function HomeTab() {
           </button>
         </div>
       </div>
-
-      <div className="flex-1 relative bg-black overflow-hidden">
+      <div style={canvasContainerStyle} className="flex-1 relative">
         <div
           ref={canvasRef}
-          className="w-full h-full relative cursor-crosshair"
+          className={
+            `relative ${isDragging ? 'cursor-grabbing' : 'cursor-crosshair'}`
+          }
+          style={{
+            width: canvasDisplayPx,
+            height: canvasDisplayPx,
+            maxWidth: maxCanvasPx,
+            maxHeight: maxCanvasPx,
+            aspectRatio: '1/1',
+            background: 'black',
+            margin: 'auto',
+            transition: 'width 0.2s, height 0.2s',
+            userSelect: 'none',
+          }}
           onClick={handleCanvasClick}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onWheel={handleWheel}
-          style={{ cursor: isDragging ? 'grabbing' : 'crosshair' }}
         >
           <div
             className="absolute"
@@ -298,7 +307,6 @@ export function HomeTab() {
             ))}
           </div>
         </div>
-
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           <button
             onClick={() => setZoom(prev => Math.min(20, prev * 1.2))}
@@ -307,24 +315,22 @@ export function HomeTab() {
             +
           </button>
           <button
-            onClick={() => setZoom(prev => Math.max(0.1, prev / 1.2))}
+            onClick={() => setZoom(prev => Math.max(1, prev / 1.2))}
             className="w-10 h-10 bg-gray-800 text-white rounded-lg shadow-lg flex items-center justify-center text-lg font-bold hover:bg-gray-700"
           >
             -
           </button>
           <button
-            onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}
+            onClick={() => { setZoom(4); setOffset({ x: 0, y: 0 }); }}
             className="w-10 h-10 bg-gray-800 text-white rounded-lg shadow-lg flex items-center justify-center text-sm"
             title="Reset View"
           >
             ⌂
           </button>
         </div>
-
         <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-3 py-2 rounded text-sm">
           {Math.round(zoom * 100)}% | ({Math.round(offset.x)}, {Math.round(offset.y)})
         </div>
-
         {showColorPalette && (
           <div className="absolute top-16 right-4 bg-gray-800 p-4 rounded-lg shadow-xl z-10">
             <div className="grid grid-cols-4 gap-2 mb-3">
@@ -344,15 +350,26 @@ export function HomeTab() {
               ))}
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={customColor}
-                onChange={(e) => {
-                  setCustomColor(e.target.value);
-                  setSelectedColor(e.target.value);
+              <div
+                className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer flex items-center justify-center bg-white"
+                onClick={() => {
+                  setShowColorPicker(true);
+                  if (colorInputRef.current) colorInputRef.current.click();
                 }}
-                className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer"
-              />
+              >
+                <input
+                  ref={colorInputRef}
+                  type="color"
+                  value={customColor}
+                  onChange={(e) => {
+                    setCustomColor(e.target.value);
+                    setSelectedColor(e.target.value);
+                  }}
+                  className="w-8 h-8 rounded border-2 border-gray-600 cursor-pointer opacity-0 absolute"
+                  style={{ left: 0, top: 0 }}
+                />
+                <span className="text-xs text-gray-700">Custom</span>
+              </div>
               <span className="text-xs text-gray-300">Custom</span>
             </div>
             <div className="mt-2 text-xs text-gray-300">
@@ -361,7 +378,6 @@ export function HomeTab() {
           </div>
         )}
       </div>
-
       {purchaseError && (
         <div className="absolute bottom-4 right-4 bg-red-600 text-white px-3 py-2 rounded text-sm">
           {purchaseError}
