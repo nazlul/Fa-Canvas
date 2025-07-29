@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DAILY_PIXEL_LIMIT } from '~/lib/constants';
 
-// In-memory storage for demo purposes
-// In production, this would be a database
-let userDailyPixels: Record<string, number> = {};
+const userDailyPixels: Record<string, number> = {};
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +15,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user's remaining pixels for today
     const today = new Date().toDateString();
     const userKey = `${address}-${today}`;
     const userPixelsToday = userDailyPixels[userKey] || 0;
@@ -29,7 +26,7 @@ export async function GET(request: NextRequest) {
       usedPixels: userPixelsToday,
       dailyLimit: DAILY_PIXEL_LIMIT
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { success: false, error: 'Failed to get user pixels' },
       { status: 500 }

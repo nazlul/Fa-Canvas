@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useAccount, useBalance, useWriteContract, useChainId, useSwitchChain } from "wagmi";
+import { useAccount, useWriteContract, useChainId, useSwitchChain } from "wagmi";
 import { parseEther } from "viem";
-import { base } from "wagmi/chains";
-import { CANVAS_SIZE, DAILY_PIXEL_LIMIT, PIXELS_PER_PURCHASE, PRICE_PER_PURCHASE, PAYMENT_WALLET, REQUIRED_CHAIN_ID } from "~/lib/constants";
+import { CANVAS_SIZE, DAILY_PIXEL_LIMIT, PIXELS_PER_PURCHASE, PRICE_PER_PURCHASE, REQUIRED_CHAIN_ID } from "~/lib/constants";
 
-// Contract ABI for CastCanvas
 const CONTRACT_ABI = [
   "function purchasePixels() external payable",
   "function getAvailablePixels(address user) external view returns (uint256)",
@@ -15,8 +13,7 @@ const CONTRACT_ABI = [
   "event PixelPurchased(address indexed user, uint256 amount, uint256 pixels)"
 ];
 
-// Contract address (will be updated after deployment)
-const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; // TODO: Update with deployed address
+const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 interface Pixel {
   x: number;
@@ -24,14 +21,6 @@ interface Pixel {
   color: string;
   timestamp: number;
   user: string;
-}
-
-interface CastCanvasProps {
-  pixels: Pixel[];
-  onPixelPlace: (x: number, y: number, color: string) => void;
-  remainingPixels: number;
-  onPurchasePixels: () => void;
-  isLoading: boolean;
 }
 
 const DEFAULT_COLORS = [
@@ -54,12 +43,10 @@ export function HomeTab() {
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const { address } = useAccount();
-  const { data: balance } = useBalance({ address });
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const { writeContract, isPending, error } = useWriteContract();
 
-  // Load existing pixels from API
   useEffect(() => {
     const loadPixels = async () => {
       try {
@@ -68,15 +55,14 @@ export function HomeTab() {
         if (data.success) {
           setPixels(data.pixels);
         }
-      } catch (error) {
-        console.error('Failed to load pixels:', error);
+      } catch (_error) {
+        console.error('Failed to load pixels:', _error);
       }
     };
 
     loadPixels();
   }, []);
 
-  // Load user's remaining pixels when wallet connects
   useEffect(() => {
     if (address) {
       const loadUserPixels = async () => {
@@ -86,8 +72,8 @@ export function HomeTab() {
           if (data.success) {
             setRemainingPixels(data.remainingPixels);
           }
-        } catch (error) {
-          console.error('Failed to load user pixels:', error);
+        } catch (_error) {
+          console.error('Failed to load user pixels:', _error);
         }
       };
 
@@ -128,8 +114,8 @@ export function HomeTab() {
       } else {
         alert(data.error || 'Failed to place pixel');
       }
-    } catch (error) {
-      console.error('Failed to place pixel:', error);
+    } catch (_error) {
+      console.error('Failed to place pixel:', _error);
       alert('Failed to place pixel. Please try again.');
     }
   }, [selectedColor, remainingPixels, address]);
@@ -172,18 +158,15 @@ export function HomeTab() {
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     
-    // Get mouse position relative to canvas
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    // Calculate zoom factor
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.1, Math.min(20, zoom * zoomFactor));
     
-    // Calculate new offset to zoom towards mouse position
     const zoomRatio = newZoom / zoom;
     const newOffsetX = mouseX - (mouseX - offset.x) * zoomRatio;
     const newOffsetY = mouseY - (mouseY - offset.y) * zoomRatio;
@@ -198,11 +181,10 @@ export function HomeTab() {
       return;
     }
 
-    // Check if we're on the correct network (Base)
     if (chainId !== REQUIRED_CHAIN_ID) {
       try {
         await switchChain({ chainId: REQUIRED_CHAIN_ID });
-      } catch (error) {
+      } catch (_error) {
         alert("Please switch to Base network to purchase pixels!");
         return;
       }
@@ -212,25 +194,22 @@ export function HomeTab() {
     setIsLoading(true);
 
     try {
-      // Call the smart contract to purchase pixels
       writeContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'purchasePixels',
         value: parseEther(PRICE_PER_PURCHASE.toString()),
       });
-    } catch (error) {
-      console.error('Failed to purchase pixels:', error);
+    } catch (_error) {
+      console.error('Failed to purchase pixels:', _error);
       setPurchaseError("Failed to purchase pixels. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle successful purchase
   useEffect(() => {
     if (!isPending && !error && address) {
-      // Refresh user's pixel count
       const refreshPixels = async () => {
         try {
           const response = await fetch(`/api/canvas/user?address=${address}`);
@@ -238,8 +217,8 @@ export function HomeTab() {
           if (data.success) {
             setRemainingPixels(data.remainingPixels);
           }
-        } catch (error) {
-          console.error('Failed to refresh pixels:', error);
+        } catch (_error) {
+          console.error('Failed to refresh pixels:', _error);
         }
       };
 
@@ -247,13 +226,8 @@ export function HomeTab() {
     }
   }, [isPending, error, address]);
 
-  const getPixelAt = (x: number, y: number) => {
-    return pixels.find(pixel => pixel.x === Math.floor(x) && pixel.y === Math.floor(y));
-  };
-
   return (
     <div className="flex flex-col h-full">
-      {/* Minimal Header */}
       <div className="bg-black text-white p-2 rounded-lg mb-2 shadow-sm">
         <div className="flex justify-between items-center text-sm">
           <span className="font-bold">CastCanvas</span>
@@ -266,7 +240,6 @@ export function HomeTab() {
         )}
       </div>
 
-      {/* Main Canvas Container - Takes most of the space */}
       <div className="flex-1 relative bg-black rounded-lg overflow-hidden border border-gray-700">
         <div
           ref={canvasRef}
@@ -279,7 +252,6 @@ export function HomeTab() {
           onWheel={handleWheel}
           style={{ cursor: isDragging ? 'grabbing' : 'crosshair' }}
         >
-          {/* Canvas Grid - Black background with white grids */}
           <div
             className="absolute"
             style={{
@@ -294,8 +266,7 @@ export function HomeTab() {
               backgroundSize: `${zoom}px ${zoom}px`
             }}
           >
-            {/* Render Pixels */}
-            {pixels.map((pixel, index) => (
+            {pixels.map((pixel) => (
               <div
                 key={`${pixel.x}-${pixel.y}-${pixel.timestamp}`}
                 className="pixel"
@@ -313,7 +284,6 @@ export function HomeTab() {
           </div>
         </div>
 
-        {/* Zoom Controls - Floating on top */}
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           <button
             onClick={() => setZoom(prev => Math.min(20, prev * 1.2))}
@@ -336,13 +306,11 @@ export function HomeTab() {
           </button>
         </div>
 
-        {/* Zoom Level Indicator */}
         <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
           {Math.round(zoom * 100)}%
         </div>
       </div>
 
-      {/* Color Palette and Controls - Compact at bottom */}
       <div className="bg-black text-white p-3 rounded-lg mt-2 shadow-sm">
         <div className="color-palette mb-3">
           {DEFAULT_COLORS.map((color) => (
@@ -368,7 +336,6 @@ export function HomeTab() {
           </div>
         </div>
 
-        {/* Purchase Section */}
         <div className="flex justify-between items-center">
           <div className="text-xs text-gray-400">
             Selected: <span className="font-mono" style={{ color: selectedColor }}>{selectedColor}</span>
