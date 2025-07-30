@@ -12,6 +12,14 @@ interface Pixel {
 const canvasPixels: Pixel[] = [];
 const userDailyPixels: Record<string, number> = {};
 
+// Helper function to get user's remaining pixels
+function getUserRemainingPixels(user: string): number {
+  const today = new Date().toDateString();
+  const userKey = `${user}-${today}`;
+  const userPixelsToday = userDailyPixels[userKey] || 0;
+  return DAILY_PIXEL_LIMIT - userPixelsToday;
+}
+
 export async function GET() {
   try {
     return NextResponse.json({
@@ -91,11 +99,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-export async function GET_USER_PIXELS(user: string) {
-  const today = new Date().toDateString();
-  const userKey = `${user}-${today}`;
-  const userPixelsToday = userDailyPixels[userKey] || 0;
-  return DAILY_PIXEL_LIMIT - userPixelsToday;
 } 
