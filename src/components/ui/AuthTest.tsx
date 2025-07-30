@@ -38,7 +38,7 @@ export function AuthTest() {
           Sign Out
         </Button>
         {error && (
-          <Button onClick={clearError} variant="ghost">
+          <Button onClick={clearError} variant="secondary">
             Clear Error
           </Button>
         )}

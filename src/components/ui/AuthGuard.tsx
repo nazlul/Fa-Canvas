@@ -157,7 +157,7 @@ export function AuthStatus() {
             <span className="text-xs text-gray-500">@{user.username}</span>
           )}
         </div>
-        <Button onClick={signOut} variant="ghost" size="sm">
+        <Button onClick={signOut} variant="outline" size="sm">
           Sign Out
         </Button>
       </div>
