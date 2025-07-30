@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useAccount, useWriteContract, useChainId, useSwitchChain } from "wagmi";
 import { parseEther } from "viem";
 import { CANVAS_SIZE, DAILY_PIXEL_LIMIT, PIXELS_PER_PURCHASE, PRICE_PER_PURCHASE, REQUIRED_CHAIN_ID } from "~/lib/constants";
-import { useQuickAuth } from "~/hooks/useQuickAuth";
+import { useAuth } from "~/hooks/useAuth";
 
 const CONTRACT_ABI = [
   "function purchasePixels() external payable",
@@ -50,7 +50,7 @@ export function HomeTab() {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const { writeContract, isPending, error } = useWriteContract();
-  const { authenticatedUser, status, signIn } = useQuickAuth();
+  const { user, signIn } = useAuth();
 
   useEffect(() => {
     const loadPixels = async () => {
@@ -89,7 +89,7 @@ export function HomeTab() {
       alert("You've used all your daily pixels! Purchase more to continue.");
       return;
     }
-    if (!authenticatedUser) {
+    if (!user) {
       await signIn();
       return;
     }
@@ -103,7 +103,7 @@ export function HomeTab() {
           x: Math.floor(x),
           y: Math.floor(y),
           color: selectedColor,
-          user: authenticatedUser.fid
+          user: user.fid
         }),
       });
       const data = await response.json();
@@ -117,7 +117,7 @@ export function HomeTab() {
       console.error('Failed to place pixel:', _error);
       alert('Failed to place pixel. Please try again.');
     }
-  }, [selectedColor, remainingPixels, authenticatedUser, signIn]);
+  }, [selectedColor, remainingPixels, user, signIn]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (!canvasRef.current) return;

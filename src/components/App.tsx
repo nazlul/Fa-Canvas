@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { HomeTab } from "~/components/ui/tabs";
-import { useNeynarUser } from "../hooks/useNeynarUser";
+import { AuthGuard, AuthStatus } from "~/components/ui/AuthGuard";
+import { useAuth } from "~/hooks/useAuth";
 
 export enum Tab {
   Home = "home",
@@ -24,7 +25,7 @@ export default function App(
     currentTab,
   } = useMiniApp();
 
-  const { user: neynarUser } = useNeynarUser(context || undefined);
+  const { user, status } = useAuth();
 
   useEffect(() => {
     if (isSDKLoaded) {
@@ -32,6 +33,7 @@ export default function App(
     }
   }, [isSDKLoaded, setInitialTab]);
 
+  // Show loading state while SDK is loading
   if (!isSDKLoaded) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -53,10 +55,14 @@ export default function App(
         paddingRight: context?.client.safeAreaInsets?.right ?? 0,
       }}
     >
-      <Header neynarUser={neynarUser} />
-
+      <Header user={user} />
+      
       <div className="flex-1">
-        {currentTab === Tab.Home && <HomeTab />}
+        {currentTab === Tab.Home && (
+          <AuthGuard>
+            <HomeTab />
+          </AuthGuard>
+        )}
       </div>
     </div>
   );
